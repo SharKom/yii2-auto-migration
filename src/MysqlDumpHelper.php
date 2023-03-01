@@ -4,8 +4,17 @@ namespace sharkom\automigration;
 use Yii;
 use yii\base\InvalidConfigException;
 
+/**
+ * Class to Dump SQL Tables
+ */
 class MysqlDumpHelper
 {
+    /**
+     * @param $tableName
+     * @param $dumpPath
+     * @param string $db
+     * @return bool
+     */
     public static function dumpTable($tableName, $dumpPath, $db = 'db')
     {
         // Verifica e crea la cartella di destinazione
@@ -38,6 +47,11 @@ class MysqlDumpHelper
         return true;
     }
 
+    /**
+     * @param $name
+     * @param string $db
+     * @return mixed
+     */
     private static function getDsnAttribute($name, $db = "db")
     {
         $dsn = Yii::$app->{$db}->dsn;

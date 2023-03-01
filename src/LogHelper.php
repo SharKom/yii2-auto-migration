@@ -75,11 +75,10 @@ class LogHelper{
     }
 
 
-
-
-
     /**
      * @param $prompt
+     * @param bool $interactive
+     * @return bool|void
      */
     static function confirm($prompt, $interactive = true) {
         if (!$interactive) {

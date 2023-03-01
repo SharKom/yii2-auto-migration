@@ -10,14 +10,25 @@ use yii\db\Exception;
 use yii\helpers\Console;
 use yii\console\ExitCode;
 
+
+/**
+ * Console controller for automatic schema migrations.
+ */
 class MigrateController extends Controller
 {
-    var $gitmodule;
-    var $root;
-    var $module;
+    /** @var string The name of the Git module. */
+    public $gitmodule;
+    /** @var string The path to the root directory of the vendor folder. */
+    public $root;
+    /** @var mixed The current module instance. */
+    public $module;
 
     /**
-     * @param $root
+     * Constructor.
+     *
+     * @param string $id The ID of this controller.
+     * @param mixed $module The current module instance.
+     * @param array $config Name-value pairs that will be used to initialize the object properties.
      */
     public function __construct($id, $module, $config = [])
     {
@@ -27,16 +38,30 @@ class MigrateController extends Controller
 
     }
 
+    /**
+     * Returns the options and their default values for this controller.
+     *
+     * @param string $actionID The ID of the current action.
+     * @return array The options and their default values.
+     */
     public function options($actionID)
     {
         return ['gitmodule'];
     }
 
+    /**
+     * Returns the aliases for the options of this controller.
+     *
+     * @return array The aliases for the options of this controller.
+     */
     public function optionAliases()
     {
         return ['m' => 'gitmodule'];
     }
 
+    /**
+     * Generates migration schemas for all the tables in all the Git modules.
+     */
     public function actionGenerateAllSchemas() {
 
         $dir = array_filter(scandir($this->root . "/{$this->module->params['pattern']}/"), function($file) {
@@ -68,6 +93,13 @@ class MigrateController extends Controller
         }
     }
 
+    /**
+     * Generates a migration schema file for the specified table.
+     *
+     * @param string $table The name of the table for which to generate the schema file.
+     * @param bool $backup Whether to generate the file in the backup folder.
+     * @param bool $return Whether to return the schema array
+     **/
     public function actionGenerateSchemaFile($table, $backup=false, $return=false)
     {
         $db = Yii::$app->getDb();
@@ -119,6 +151,11 @@ class MigrateController extends Controller
         return ExitCode::OK;
     }
 
+    /**
+     * Apply all migrations for each module.
+     *
+     * @return void
+     */
     public function actionApplyAllMigrations() {
 
         $dir = array_filter(scandir($this->root . "/{$this->module->params['pattern']}/"), function($file) {
@@ -150,6 +187,14 @@ class MigrateController extends Controller
         }
     }
 
+    /**
+     * Apply migration for a specified table.
+     *
+     * @param string  $table     Table name
+     * @param boolean $rollback  Whether to rollback or not
+     *
+     * @return int Exit code
+     */
     public function actionApplyMigration($table, $rollback=false)
     {
         $alterCommands=[];
@@ -265,6 +310,12 @@ class MigrateController extends Controller
         }
     }
 
+    /**
+     * @param $name
+     * @param $table
+     * @return bool
+     * @throws \yii\base\NotSupportedException
+     */
     private function getTableIndex($name, $table){
         $db = Yii::$app->getDb();
         $indexes=$db->getSchema()->getTableIndexes($table);
@@ -276,6 +327,13 @@ class MigrateController extends Controller
         return false;
     }
 
+    /**
+     * @param $tableName
+     * @param $columnName
+     * @param $columnSchema
+     * @param bool $add
+     * @return string
+     */
     public function generateAlterColumnSql($tableName, $columnName, $columnSchema, $add = true)
     {
         $sql = '';
@@ -296,6 +354,11 @@ class MigrateController extends Controller
         return $this->columnDefsExt($isPrimaryKey, $sql, $isNullable, $defaultValue, $comment, $autoIncrement);
     }
 
+    /**
+     * @param $columnName
+     * @param $columnSchema
+     * @return string
+     */
     public function generateColumnDefinitions($columnName, $columnSchema)
     {
         $sql = '';
@@ -312,6 +375,13 @@ class MigrateController extends Controller
         return str_replace(";", ",", $this->columnDefsExt($isPrimaryKey, $sql, $isNullable, $defaultValue, $comment, $autoIncrement))."\n";
     }
 
+    /**
+     * @param $productionColumns
+     * @param $deploymentColumns
+     * @param $tableName
+     * @param $productionSchema
+     * @return array
+     */
     public function generateSqlEditFieldsStatements($productionColumns, $deploymentColumns, $tableName, $productionSchema){
 
         $alterCommands = [];
@@ -338,6 +408,12 @@ class MigrateController extends Controller
     }
 
 
+    /**
+     * @param $productionKeys
+     * @param $deploymentKeys
+     * @param $tableName
+     * @return array
+     */
     public function generateSqlEditKeysStatements($productionKeys, $deploymentKeys, $tableName){
         $alterCommands = [];
 
@@ -369,7 +445,12 @@ class MigrateController extends Controller
     }
 
 
-    public function generateCreateTable($table,$deploymentColumns){
+    /**
+     * @param $table
+     * @param $deploymentColumns
+     * @return string
+     */
+    public function generateCreateTable($table, $deploymentColumns){
         $definitions="";
 
         foreach ($deploymentColumns as $name=>$schema) {
@@ -382,9 +463,11 @@ class MigrateController extends Controller
     }
 
 
-
-
-
+    /**
+     * @param $oldColumnSchema
+     * @param $newColumnSchema
+     * @return bool
+     */
     public function hasSchemaChanges($oldColumnSchema, $newColumnSchema)
     {
         $oldProps = get_object_vars($oldColumnSchema);
@@ -452,6 +535,13 @@ class MigrateController extends Controller
         return '';
     }
 
+    /**
+     * @param $table
+     * @param $indexName
+     * @param $value
+     * @param bool $add
+     * @return string
+     */
     function getAddKeysSql($table, $indexName, $value, $add=true) {
         $query = '';
         if(!$add) {
@@ -479,6 +569,11 @@ class MigrateController extends Controller
         return $query;
     }
 
+    /**
+     * @param $table
+     * @return array
+     * @throws \yii\base\NotSupportedException
+     */
     public function getAllTableKeys($table){
         $db = Yii::$app->getDb();
         $foreign_keys = json_decode(json_encode($db->getSchema()->getTableForeignKeys($table)));
@@ -531,6 +626,11 @@ class MigrateController extends Controller
         return $sql;
     }
 
+    /**
+     * @param $obj1
+     * @param $obj2
+     * @return bool
+     */
     function compareObjects($obj1, $obj2) {
         if (count((array)$obj1) !== count((array)$obj2)) {
             return false;

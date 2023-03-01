@@ -36,6 +36,9 @@ class Module extends BaseModule implements BootstrapInterface
         ];
     }
 
+    /**
+     * @param \yii\base\Application $app
+     */
     public function bootstrap($app)
     {
         if ($app instanceof \yii\console\Application) {
