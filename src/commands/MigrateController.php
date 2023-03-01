@@ -1,6 +1,6 @@
 <?php
 
-namespace console\controllers;
+namespace sharkom\automigration\commands;
 
 use sharkom\devhelper\LogHelper;
 use sharkom\automigration\MysqlDumpHelper;
@@ -14,6 +14,7 @@ class MigrateController extends Controller
 {
     var $gitmodule;
     var $root;
+    var $module;
 
     /**
      * @param $root
@@ -22,6 +23,8 @@ class MigrateController extends Controller
     {
         parent::__construct($id, $module, $config);
         $this->root = Yii::getAlias('@vendor');
+        $this->module=Yii::$app->controller->module;
+
     }
 
     public function options($actionID)
@@ -36,15 +39,15 @@ class MigrateController extends Controller
 
     public function actionGenerateAllSchemas() {
 
-        $dir = array_filter(scandir($this->root . '/sharkom/'), function($file) {
-            return is_dir($this->root . '/sharkom/' . $file) && $file != '..' && $file != '.';
+        $dir = array_filter(scandir($this->root . "/{$this->module->params['pattern']}/"), function($file) {
+            return is_dir($this->root . "/{$this->module->params['pattern']}/" . $file) && $file != '..' && $file != '.';
         });
 
         foreach ($dir as $file) {
-            $this->gitmodule = "sharkom/$file";
+            $this->gitmodule = "{$this->module->params['pattern']}/$file";
 
 
-            $migrationsTablesFile=$this->root . '/sharkom/' . $file ."/src/MigrationTables.php";
+            $migrationsTablesFile=$this->root . "/{$this->module->params['pattern']}/" . $file ."/src/MigrationTables.php";
 
             if(file_exists($migrationsTablesFile)) {
                 LogHelper::log("info","----------------------------------------------------");
@@ -93,7 +96,7 @@ class MigrateController extends Controller
         }
 
         if(!is_dir($path)) {
-            LogHelper::log("info", LogHelper::log("info",Yii::t('automigration', 'Creating the directory: {path}', [
+            LogHelper::log("info",Yii::t('automigration', 'Creating the directory: {path}', [
                 'path' => $path,
             ]));
             if (!mkdir($path, 0777) && !is_dir($path)) {
@@ -108,7 +111,7 @@ class MigrateController extends Controller
         $schemaFile =  $path. $table . '.php';
         file_put_contents($schemaFile, '<?php return ' . var_export($schema, true) . ';');
 
-        LogHelper::log("info", LogHelper::log("info",Yii::t('automigration', 'Schema file generated for table {table} in {path}', [
+        LogHelper::log("info",Yii::t('automigration', 'Schema file generated for table {table} in {path}', [
             'path' => $path,
             'table' => $table
         ]));
@@ -118,26 +121,30 @@ class MigrateController extends Controller
 
     public function actionApplyAllMigrations() {
 
-        $dir = array_filter(scandir($this->root . '/sharkom/'), function($file) {
-            return is_dir($this->root . '/sharkom/' . $file) && $file != '..' && $file != '.';
+        $dir = array_filter(scandir($this->root . "/{$this->module->params['pattern']}/"), function($file) {
+            return is_dir($this->root . "/{$this->module->params['pattern']}/" . $file) && $file != '..' && $file != '.';
         });
 
         foreach ($dir as $file) {
-            $this->gitmodule = "sharkom/$file";
+            $this->gitmodule = "{$this->module->params['pattern']}/$file";
 
 
-            $migrationsTablesFile=$this->root . '/sharkom/' . $file ."/src/MigrationTables.php";
+            $migrationsTablesFile=$this->root . "/{$this->module->params['pattern']}/" . $file ."/src/MigrationTables.php";
 
             if(file_exists($migrationsTablesFile)) {
                 LogHelper::log("info","----------------------------------------------------");
-                LogHelper::log("info","Inizio la migrazione per il modulo {$this->gitmodule}");
+                LogHelper::log("INFO",Yii::t('automigration', 'Start tables migration for module {module}', [
+                    'module' => $this->gitmodule,
+                ]));
                 LogHelper::log("info","----------------------------------------------------");
                 $tables=require $migrationsTablesFile;
                 foreach ($tables as $table) {
                     $this->actionApply($table);
                 }
                 LogHelper::log("info","----------------------------------------------------");
-                LogHelper::log("info","Fine aggiornamento del modulo {$this->gitmodule}");
+                LogHelper::log("INFO",Yii::t('automigration', 'End tables migration for module {module}', [
+                    'module' => $this->gitmodule,
+                ]));
                 LogHelper::log("info","----------------------------------------------------");
             }
         }
@@ -150,20 +157,24 @@ class MigrateController extends Controller
 
         $db = Yii::$app->getDb();
         if($rollback) {
-            LogHelper::log("WARN", "Procedura di rollback");
+            LogHelper::log("WARN",Yii::t('automigration', 'Start rollback procedure'));
             $schemaFile = "{$this->root}/{$this->gitmodule}/rollback_schema/" . $table . '.php';
         } else {
             $schemaFile = "{$this->root}/{$this->gitmodule}/schema/" . $table . '.php';
         }
         if (!file_exists($schemaFile)) {
-            echo "Error: schema file not found for table $table\n";
+            LogHelper::log("error",Yii::t('automigration', 'Schema not found for table {table}', [
+                'table' => $table,
+            ]));
             return ExitCode::UNSPECIFIED_ERROR;
         }
 
         $schema = require $schemaFile;
 
         if (!isset($schema['table'], $schema['columns'], $schema['keys'])) {
-            echo "Error: invalid schema file for table $table\n";
+            LogHelper::log("error",Yii::t('automigration', 'invalid schema file for table {table}', [
+                'table' => $table,
+            ]));
             return ExitCode::UNSPECIFIED_ERROR;
         }
 
@@ -185,7 +196,9 @@ class MigrateController extends Controller
         $keysCommands=$this->generateSqlEditKeysStatements($this->getAllTableKeys($tableName), $keys, $tableName);
 
         if ($createCommand==="" && (count($alterCommands) === 0) && (count($keysCommands) === 0)) {
-            LogHelper::log("INFO", "Nessun cambiamento da applicare per la tabella $tableName");
+            LogHelper::log("info",Yii::t('automigration', 'No changes for table {table}', [
+                'table' => $tableName,
+            ]));
             return ExitCode::OK;
         }
 
@@ -200,9 +213,13 @@ class MigrateController extends Controller
             if($createCommand!=="") {
 
                 LogHelper::log("info",$createCommand);
-                if(LogHelper::confirm("Lanciare questo comando di creazione tabella? [Y|n]")){
+                if(LogHelper::confirm(Yii::t('automigration', 'Do you want to create the table?')." [Y|n]")){
                     $db->createCommand($createCommand)->execute();
-                    LogHelper::log("info", "Tabella $tableName creata: $createCommand");
+
+                    LogHelper::log("info",Yii::t('automigration', 'Table {table} create with command {createCommand}', [
+                        'table' => $tableName,
+                        'createCommand' => $createCommand,
+                    ]));
                 }
 
 
@@ -211,9 +228,11 @@ class MigrateController extends Controller
             foreach ($alterCommands as $alterCommand) {
                 LogHelper::log("info", $alterCommand);
 
-                if(LogHelper::confirm("Lanciare questo comando di modifica? [Y|n]")) {
+                if(LogHelper::confirm(Yii::t('automigration', 'Do you want to launch this command?')." [Y|n]")) {
                     $db->createCommand($alterCommand)->execute();
-                    LogHelper::log("info", "Eseguo il comando: $alterCommand");
+                    LogHelper::log("info",Yii::t('automigration', 'Execute the command: {command}', [
+                        'command' => $alterCommand,
+                    ]));
                 }
 
 
@@ -222,15 +241,18 @@ class MigrateController extends Controller
             foreach ($keysCommands as $keyCommand) {
                 LogHelper::log("info", $keyCommand);
 
-                if(LogHelper::confirm("Lanciare questo comando di modifica? [Y|n]")) {
-
+                if(LogHelper::confirm(Yii::t('automigration', 'Do you want to launch this command?')." [Y|n]")) {
                     $db->createCommand($keyCommand)->execute();
-                    LogHelper::log("info", "Eseguo il comando: $keyCommand");
+                    LogHelper::log("info",Yii::t('automigration', 'Execute the command: {command}', [
+                        'comman' => $keyCommand,
+                    ]));
                 }
             }
 
             $transaction->commit();
-            LogHelper::log("INFO", "Cambiamenti per la tabella $tableName applicati con successo");
+            LogHelper::log("info",Yii::t('automigration', 'Changes for table {table} applied', [
+                'table' => $tableName,
+            ]));
             return ExitCode::OK;
 
         } catch (\Exception $e) {
@@ -238,7 +260,7 @@ class MigrateController extends Controller
                 $transaction->rollBack();
                 $this->actionApply($tableName, true);
             }
-            echo "Error: " . $e->getMessage() . "\n";
+            LogHelper::log("error",$e->getMessage());
             return ExitCode::UNSPECIFIED_ERROR;
         }
     }
@@ -327,10 +349,10 @@ class MigrateController extends Controller
             //print_r($productionKeys);
             //LogHelper::log("info", "Index name deploy cycle: $name");
             if (!$exists) {
-                LogHelper::log("info", "$name does not exists");
+                //LogHelper::log("info", "$name does not exists");
                 $alterCommands[] = $this->getAddKeysSql($tableName, $name, $schema);
             } elseif (!$this->compareObjects($schema, $productionKeys[$name])) {
-                LogHelper::log("info", "$name exists - modify");
+                //LogHelper::log("info", "$name exists - modify");
                 $alterCommands[] = $this->getAddKeysSql($tableName, $name, $schema, false);
             }
         }

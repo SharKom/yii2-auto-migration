@@ -88,7 +88,7 @@ class LogHelper{
 
         $module = Yii::$app->controller->module;
 
-        if (!isset($module->params['debugstep']) || !$module->params['debugstep']) {
+        if (!isset($module->params['interactive']) || !$module->params['interactive']) {
             return true;
         }
 
@@ -100,7 +100,7 @@ class LogHelper{
             die("Esecuzione script terminata");
         }
     }
-    
+
 
     /**
      * @param $prompt
