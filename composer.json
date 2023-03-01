@@ -2,7 +2,7 @@
     "name": "sharkom/yii2-auto-migration",
     "description": "Automatic migration of mysql table changes",
     "type": "yii2-extension",
-    "license": "commercial",
+    "license": "LGPL-2.1-or-later",
     "authors": [
         {
             "name": "Andrea Gava",
