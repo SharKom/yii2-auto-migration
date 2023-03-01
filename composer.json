@@ -1,0 +1,18 @@
+{
+    "name": "sharkom/yii2-auto-migration",
+    "description": "Automatic migration of mysql table changes",
+    "type": "yii2-extension",
+    "license": "commercial",
+    "authors": [
+        {
+            "name": "Andrea Gava",
+            "email": "a.gava@sharkom.net"
+        }
+    ],
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "sharkom\\automigration\\": "src"
+        }
+    }
+}
